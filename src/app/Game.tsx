@@ -17,6 +17,7 @@ type GamePhase = "setup" | "playing" | "gameover";
 
 const CHAR_SIZE = 50;
 const MOVE_SPEED = 4;
+const HUD_HEIGHT = 85;
 const OBSTACLE_COLORS = [
   "#e74c3c",
   "#e67e22",
@@ -193,7 +194,7 @@ export default function Game() {
       const e1 = expr1Ref.current;
       let p1 = p1Ref.current;
       let t1 = p1.targetY;
-      if (e1 === "happy") t1 = Math.max(CHAR_SIZE, t1 - MOVE_SPEED);
+      if (e1 === "happy") t1 = Math.max(HUD_HEIGHT + CHAR_SIZE / 2, t1 - MOVE_SPEED);
       else if (e1 === "sad") t1 = Math.min(fullHeight - CHAR_SIZE, t1 + MOVE_SPEED);
       const y1 = p1.y + (t1 - p1.y) * 0.15;
 
@@ -201,7 +202,7 @@ export default function Game() {
       const e2 = expr2Ref.current;
       let p2 = p2Ref.current;
       let t2 = p2.targetY;
-      if (e2 === "happy") t2 = Math.max(CHAR_SIZE, t2 - MOVE_SPEED);
+      if (e2 === "happy") t2 = Math.max(HUD_HEIGHT + CHAR_SIZE / 2, t2 - MOVE_SPEED);
       else if (e2 === "sad") t2 = Math.min(fullHeight - CHAR_SIZE, t2 + MOVE_SPEED);
       const y2 = p2.y + (t2 - p2.y) * 0.15;
 
