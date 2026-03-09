@@ -106,7 +106,7 @@ export function useFaceDetection(): FaceDetectionResult {
 
     let running = true;
     let lastDetection = 0;
-    const DETECTION_INTERVAL = 200;
+    const DETECTION_INTERVAL = 150;
 
     async function detect(timestamp: number) {
       if (!running) return;
@@ -125,23 +125,42 @@ export function useFaceDetection(): FaceDetectionResult {
             .detectAllFaces(
               video,
               new faceapi.TinyFaceDetectorOptions({
-                inputSize: 320,
-                scoreThreshold: 0.3,
+                inputSize: 416,
+                scoreThreshold: 0.2,
               })
             )
             .withFaceExpressions();
 
           if (detections.length >= 1) {
-            const sorted = [...detections].sort(
-              (a, b) => a.detection.box.x - b.detection.box.x
-            );
+            // Use face X position to assign to correct player.
+            // Camera is mirrored: rightmost in raw camera = left on screen (P1),
+            // leftmost in raw camera = right on screen (P2).
+            // Raw video midpoint determines which side a face is on.
+            const videoMidX = video.videoWidth / 2;
 
-            // Camera is mirrored: rightmost in raw camera = left on screen (P1)
-            const p1 = sorted[sorted.length - 1];
-            const p2 = sorted.length >= 2 ? sorted[0] : null;
+            let newP1: Expression = expressionsRef.current.player1;
+            let newP2: Expression = expressionsRef.current.player2;
 
-            const newP1 = mapExpression(p1.expressions);
-            const newP2 = p2 ? mapExpression(p2.expressions) : "neutral";
+            if (detections.length >= 2) {
+              const sorted = [...detections].sort(
+                (a, b) => a.detection.box.x - b.detection.box.x
+              );
+              newP1 = mapExpression(sorted[sorted.length - 1].expressions);
+              newP2 = mapExpression(sorted[0].expressions);
+            } else {
+              // Single face: assign based on which side of the video it's on
+              const face = detections[0];
+              const faceCenterX =
+                face.detection.box.x + face.detection.box.width / 2;
+
+              if (faceCenterX >= videoMidX) {
+                // Right side of raw video = left on screen = P1
+                newP1 = mapExpression(face.expressions);
+              } else {
+                // Left side of raw video = right on screen = P2
+                newP2 = mapExpression(face.expressions);
+              }
+            }
 
             if (
               newP1 !== expressionsRef.current.player1 ||

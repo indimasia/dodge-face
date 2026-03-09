@@ -1,11 +1,15 @@
+export type GameMode = "dodge" | "collect" | "random";
+
 export interface GameConfig {
   maxLives: number;
   gameDuration: number; // seconds
+  gameMode: GameMode;
 }
 
 export const DEFAULT_CONFIG: GameConfig = {
   maxLives: 3,
   gameDuration: 60,
+  gameMode: "dodge",
 };
 
 export interface Character {

@@ -9,6 +9,7 @@ import {
   Obstacle,
   PlayerState,
   Expression,
+  GameMode,
 } from "./types";
 import { useFaceDetection } from "./useFaceDetection";
 import GameCanvas from "./GameCanvas";
@@ -81,6 +82,9 @@ export default function Game() {
   const expr1Ref = useRef<Expression>("neutral");
   const expr2Ref = useRef<Expression>("neutral");
   const phaseRef = useRef<GamePhase>("setup");
+  // The resolved mode for the current round ("dodge" or "collect", never "random")
+  const [activeMode, setActiveMode] = useState<"dodge" | "collect">("dodge");
+  const activeModeRef = useRef<"dodge" | "collect">("dodge");
 
   const [renderTick, setRenderTick] = useState(0);
 
@@ -109,6 +113,17 @@ export default function Game() {
   }, [phase]);
 
   const startGame = useCallback(() => {
+    const resolved: "dodge" | "collect" =
+      config.gameMode === "random"
+        ? Math.random() > 0.5
+          ? "dodge"
+          : "collect"
+        : config.gameMode === "collect"
+        ? "collect"
+        : "dodge";
+    setActiveMode(resolved);
+    activeModeRef.current = resolved;
+
     const mkPlayer = (char: Character): PlayerState => ({
       y: fullHeight / 2,
       targetY: fullHeight / 2,
@@ -209,23 +224,37 @@ export default function Game() {
       // Collision detection
       let lives1 = p1.lives;
       let inv1 = p1.invincibleUntil;
+      let score1 = p1.score;
       let lives2 = p2.lives;
       let inv2 = p2.invincibleUntil;
+      let score2 = p2.score;
       const now = Date.now();
       const hitSet = new Set<number>();
+      const mode = activeModeRef.current;
 
       movedObs.forEach((obs, i) => {
-        // P1 collision
-        if (now > inv1 && lives1 > 0 && checkCollision(p1X, y1, obs)) {
-          lives1--;
-          inv1 = now + 1500;
-          hitSet.add(i);
-        }
-        // P2 collision
-        if (now > inv2 && lives2 > 0 && checkCollision(p2X, y2, obs)) {
-          lives2--;
-          inv2 = now + 1500;
-          hitSet.add(i);
+        if (mode === "dodge") {
+          // Dodge mode: collisions lose lives
+          if (now > inv1 && lives1 > 0 && checkCollision(p1X, y1, obs)) {
+            lives1--;
+            inv1 = now + 1500;
+            hitSet.add(i);
+          }
+          if (now > inv2 && lives2 > 0 && checkCollision(p2X, y2, obs)) {
+            lives2--;
+            inv2 = now + 1500;
+            hitSet.add(i);
+          }
+        } else {
+          // Collect mode: collisions gain points
+          if (lives1 > 0 && checkCollision(p1X, y1, obs)) {
+            score1 += 3;
+            hitSet.add(i);
+          }
+          if (lives2 > 0 && checkCollision(p2X, y2, obs)) {
+            score2 += 3;
+            hitSet.add(i);
+          }
         }
       });
 
@@ -242,6 +271,7 @@ export default function Game() {
         y: y1,
         targetY: t1,
         lives: Math.max(0, lives1),
+        score: mode === "collect" ? score1 : p1.score,
         expression: e1,
         invincibleUntil: inv1,
       };
@@ -251,11 +281,14 @@ export default function Game() {
         y: y2,
         targetY: t2,
         lives: Math.max(0, lives2),
+        score: mode === "collect" ? score2 : p2.score,
         expression: e2,
         invincibleUntil: inv2,
       };
 
-      if (lives1 <= 0 || lives2 <= 0) {
+      // In dodge mode, losing all lives ends the game
+      // In collect mode, only the timer ends the game
+      if (mode === "dodge" && (lives1 <= 0 || lives2 <= 0)) {
         setPhase("gameover");
         setRenderTick((t) => t + 1);
         return;
@@ -368,6 +401,30 @@ export default function Game() {
             </div>
           </div>
 
+          {/* Game mode selection */}
+          <div className="flex gap-3 mb-6">
+            {(
+              [
+                { mode: "dodge" as GameMode, label: "Dodge", desc: "Avoid obstacles" },
+                { mode: "collect" as GameMode, label: "Collect", desc: "Hit obstacles for points" },
+                { mode: "random" as GameMode, label: "Random", desc: "Surprise!" },
+              ] as const
+            ).map(({ mode, label, desc }) => (
+              <button
+                key={mode}
+                onClick={() => setConfig({ ...config, gameMode: mode })}
+                className={`px-4 py-3 rounded-lg text-sm font-semibold transition-all ${
+                  config.gameMode === mode
+                    ? "bg-purple-600 ring-2 ring-purple-400 text-white"
+                    : "bg-black/40 text-gray-300 hover:bg-black/60 backdrop-blur"
+                }`}
+              >
+                <div>{label}</div>
+                <div className="text-xs font-normal opacity-70">{desc}</div>
+              </button>
+            ))}
+          </div>
+
           {/* Character selection */}
           <div className="flex gap-12 mb-6">
             {[
@@ -433,7 +490,10 @@ export default function Game() {
           className="fixed inset-0 flex flex-col items-center justify-center p-4 text-white"
           style={{ zIndex: 2 }}
         >
-          <h1 className="text-5xl font-bold mb-6">Game Over!</h1>
+          <h1 className="text-5xl font-bold mb-2">Game Over!</h1>
+          <p className="text-lg mb-6" style={{ color: activeMode === "dodge" ? "#e74c3c" : "#2ecc71" }}>
+            Mode: {activeMode === "dodge" ? "Dodge" : "Collect"}
+          </p>
 
           <div className="flex gap-12 mb-8">
             {[
@@ -502,6 +562,7 @@ export default function Game() {
           obstacles={obsRef.current}
           timeLeft={timeLeft}
           config={config}
+          activeMode={activeMode}
         />
       </div>
     </div>

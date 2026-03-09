@@ -13,6 +13,7 @@ interface GameCanvasProps {
   obstacles: Obstacle[];
   timeLeft: number;
   config: GameConfig;
+  activeMode: "dodge" | "collect";
 }
 
 function drawObstacle(ctx: CanvasRenderingContext2D, obs: Obstacle) {
@@ -111,7 +112,8 @@ function drawHUD(
   timeLeft: number,
   xStart: number,
   halfWidth: number,
-  playerIndex: number
+  playerIndex: number,
+  activeMode: "dodge" | "collect"
 ) {
   // HUD background
   ctx.fillStyle = "rgba(0,0,0,0.5)";
@@ -156,6 +158,11 @@ function drawHUD(
     ctx.fillStyle = "#aaa";
     ctx.fillText("NEUTRAL \u2014", right, 50);
   }
+
+  // Mode badge
+  ctx.fillStyle = activeMode === "dodge" ? "#e74c3c" : "#2ecc71";
+  ctx.font = "bold 12px monospace";
+  ctx.fillText(activeMode === "dodge" ? "DODGE" : "COLLECT", right, 72);
 }
 
 export default function GameCanvas({
@@ -168,6 +175,7 @@ export default function GameCanvas({
   obstacles,
   timeLeft,
   config,
+  activeMode,
 }: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const halfWidth = Math.floor(width / 2);
@@ -215,8 +223,8 @@ export default function GameCanvas({
     ctx.shadowBlur = 0;
 
     // HUD for each player
-    drawHUD(ctx, player1, expression1, config, timeLeft, 0, halfWidth, 0);
-    drawHUD(ctx, player2, expression2, config, timeLeft, halfWidth, halfWidth, 1);
+    drawHUD(ctx, player1, expression1, config, timeLeft, 0, halfWidth, 0, activeMode);
+    drawHUD(ctx, player2, expression2, config, timeLeft, halfWidth, halfWidth, 1, activeMode);
 
     // HUD divider segment (bold on top of HUD)
     ctx.strokeStyle = gradient;
@@ -225,7 +233,7 @@ export default function GameCanvas({
     ctx.moveTo(halfWidth, 0);
     ctx.lineTo(halfWidth, 85);
     ctx.stroke();
-  }, [width, height, halfWidth, player1, player2, expression1, expression2, obstacles, timeLeft, config]);
+  }, [width, height, halfWidth, player1, player2, expression1, expression2, obstacles, timeLeft, config, activeMode]);
 
   useEffect(() => {
     draw();
